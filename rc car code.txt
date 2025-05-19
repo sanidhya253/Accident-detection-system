@@ -1,0 +1,150 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+// WiFi credentials
+const char* ssid = "ESP32_Car";
+const char* password = "12345678";
+
+// Motor Pins
+#define IN1 27
+#define IN2 14
+#define ENA 12  // Enable Pin for Motor A
+#define IN3 26
+#define IN4 25
+#define ENB 13  // Enable Pin for Motor B
+
+WebServer server(80);
+
+// ===== Movement Functions =====
+
+void moveForward() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, HIGH);
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+}
+
+void moveBackward() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+}
+
+void moveLeft() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, HIGH);
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+}
+
+void moveRight() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+}
+
+void stopCar() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  digitalWrite(ENA, LOW);
+  digitalWrite(ENB, LOW);
+}
+
+// ===== HTML Page =====
+
+const char* htmlPage = R"rawliteral(
+<!DOCTYPE html><html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Car Control</title>
+  <style>
+    body { text-align: center; font-family: Arial; margin-top: 20px; }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      margin: 5px;
+      border-radius: 5px;
+      border: none;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:active { background: #45a049; }
+    .control-panel { max-width: 400px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="control-panel">
+    <h2>ESP32 Car Controller</h2>
+    <button onclick="controlCar('forward')"> Forward</button><br><br>
+    <button onclick="controlCar('left')">Left</button>
+    <button onclick="controlCar('stop')">Stop</button>
+    <button onclick="controlCar('right')">Right</button><br><br>
+    <button onclick="controlCar('backward')">Backward</button>
+  </div>
+
+  <script>
+    function controlCar(direction) {
+      fetch(`/${direction}`)
+        .catch(err => console.log('Error:', err));
+    }
+  </script>
+</body>
+</html>
+)rawliteral";
+
+// ===== Setup =====
+
+void setup() {
+  Serial.begin(115200);
+
+  // Motor direction pins
+  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT); pinMode(ENB, OUTPUT);
+
+  // Start WiFi
+  WiFi.softAP(ssid, password);
+  Serial.print("AP IP address: ");
+  Serial.println(WiFi.softAPIP());
+
+  // Handle Web Requests
+  server.on("/", []() {
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/forward", []() {
+    moveForward();
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/backward", []() {
+    moveBackward();
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/left", []() {
+    moveLeft();
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/right", []() {
+    moveRight();
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.on("/stop", []() {
+    stopCar();
+    server.send(200, "text/html", htmlPage);
+  });
+
+  server.begin();
+}
+
+// ===== Loop =====
+
+void loop() {
+  server.handleClient();
+}

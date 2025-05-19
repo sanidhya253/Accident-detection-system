@@ -1,0 +1,135 @@
+#include <WiFi.h>
+#include <ESP_Mail_Client.h>
+#include <TinyGPSPlus.h>
+#include <HardwareSerial.h>
+
+// WiFi
+const char* ssid = "radhakafle_2.4";
+const char* password = "Ch@ndi#98765=";
+
+// SMTP
+#define SMTP_HOST "smtp.gmail.com"
+#define SMTP_PORT 465
+#define AUTHOR_EMAIL "s37129912@gmail.com"
+#define AUTHOR_PASSWORD "vede yidv yesj vrym"
+#define RECIPIENT_EMAIL "sanidhya9998@gmail.com"
+
+// GPIO
+#define IMPACT_SWITCH_PIN 15
+#define BUZZER_PIN 2
+
+// Timing
+unsigned long lastImpactTime = 0;
+const unsigned long debounceDelay = 500;
+const unsigned long cooldownPeriod = 10000;
+
+SMTPSession smtp;
+
+// GPS
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(2);  // Use UART2
+#define GPS_RX 16
+#define GPS_TX 17
+
+void smtpCallback(SMTP_Status status) {
+  Serial.println(status.info());
+}
+
+void setup() {
+  Serial.begin(115200);
+  gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+
+  pinMode(IMPACT_SWITCH_PIN, INPUT_PULLUP);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("\nWiFi connected!");
+
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  Serial.print("Waiting for NTP time sync");
+  while (time(nullptr) < 100000) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("\nTime synchronized");
+
+  smtp.callback(smtpCallback);
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+
+  // Read GPS data
+  while (gpsSerial.available()) {
+    gps.encode(gpsSerial.read());
+  }
+
+  // If impact switch pressed and cooldown passed
+  if (digitalRead(IMPACT_SWITCH_PIN) == LOW && (currentTime - lastImpactTime > cooldownPeriod)) {
+    lastImpactTime = currentTime;
+    Serial.println("Impact Detected!");
+
+    // Beep buzzer
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(1000);
+    digitalWrite(BUZZER_PIN, LOW);
+
+    // Wait for valid GPS data
+    if (gps.location.isValid()) {
+      float latitude = gps.location.lat();
+      float longitude = gps.location.lng();
+
+      Serial.printf("GPS: %.6f, %.6f\n", latitude, longitude);
+
+      // Send email
+      ESP_Mail_Session session;
+      session.server.host_name = SMTP_HOST;
+      session.server.port = SMTP_PORT;
+      session.login.email = AUTHOR_EMAIL;
+      session.login.password = AUTHOR_PASSWORD;
+      session.login.user_domain = "";
+
+      SMTP_Message message;
+      message.sender.name = "ESP32 GPS Alert";
+      message.sender.email = AUTHOR_EMAIL;
+      message.subject = "🚨 Accident Detected!";
+      message.addRecipient("Recipient", RECIPIENT_EMAIL);
+
+      String body = "An accident has been detected!\n\n";
+      body += "📍 Location:\n";
+      body += "Latitude: " + String(latitude, 6) + "\n";
+      body += "Longitude: " + String(longitude, 6) + "\n";
+      body += "\n📡 Google Maps: https://maps.google.com/?q=" + String(latitude, 6) + "," + String(longitude, 6);
+
+      message.text.content = body;
+      message.text.charSet = "utf-8";
+      message.text.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
+      message.priority = esp_mail_smtp_priority::esp_mail_smtp_priority_high;
+
+      if (!smtp.connect(&session)) {
+        Serial.println("SMTP connection failed");
+        Serial.println(smtp.errorReason());
+        return;
+      }
+
+      if (!MailClient.sendMail(&smtp, &message)) {
+        Serial.println("Error sending Email");
+        Serial.println(smtp.errorReason());
+      } else {
+        Serial.println("✅ Email with GPS sent successfully");
+      }
+
+      smtp.closeSession();
+    } else {
+      Serial.println("⚠️ Waiting for valid GPS signal...");
+    }
+  }
+
+  delay(debounceDelay);
+}

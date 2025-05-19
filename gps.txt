@@ -4,14 +4,14 @@
 #include <HardwareSerial.h>
 
 // WiFi
-const char* ssid = "radhakafle_2.4";
-const char* password = "Ch@ndi#98765=";
+const char* ssid = "Your_Wifi_SSid";
+const char* password = "WifiPassword";
 
 // SMTP
 #define SMTP_HOST "smtp.gmail.com"
 #define SMTP_PORT 465
-#define AUTHOR_EMAIL "s37129912@gmail.com"
-#define AUTHOR_PASSWORD "vede yidv yesj vrym"
+#define AUTHOR_EMAIL "Sender Mail" //Here you need to add sender mail
+#define AUTHOR_PASSWORD "APP Password" //Go to gmail of sender and go to app password and create it and save here
 #define RECIPIENT_EMAIL "sanidhya9998@gmail.com"
 
 // GPIO

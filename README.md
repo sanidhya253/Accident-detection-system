@@ -6,5 +6,5 @@ To run this code you need following libraries inside Arduino IDE:
 3. Tinygpsplus.h
 4. Webserver.h
 
-To run the car when accident detected check out for code section.
+To run the car and send alert after accident occured through gmail check out for code section.
 And for the detailed connection check out my report "Accident Detection System" 🥳
